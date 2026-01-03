@@ -1,0 +1,71 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 222.2 84% 4.9%;
+
+    /* Font family variables */
+    --font-inter: 'Inter', sans-serif;
+    --font-noto-sans-jp: 'Noto Sans JP', sans-serif;
+  }
+
+  body {
+    @apply antialiased bg-bg-primary text-text-primary min-h-screen;
+    font-feature-settings: "kern" 1;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  /* Typography improvements */
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-bold tracking-tight;
+  }
+
+  /* Japanese text rendering */
+  .japanese-text {
+    @apply font-japanese;
+    font-feature-settings: "palt" 1;
+  }
+
+  /* Ruby (furigana) text styling */
+  ruby {
+    ruby-position: over;
+  }
+
+  rt {
+    @apply text-xs text-text-secondary;
+    font-size: 0.6em;
+  }
+
+  /* Custom scrollbar - Dark mode */
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  ::-webkit-scrollbar-track {
+    @apply bg-bg-secondary rounded;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    @apply bg-bg-elevated rounded-full;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-text-tertiary;
+  }
+
+  /* Focus rings */
+  *:focus-visible {
+    @apply outline-none ring-2 ring-indigo ring-offset-2 ring-offset-bg-primary;
+  }
+}
+
+@layer components {
+  .animate-pulse-slow {
+    animation: pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  }
+}
