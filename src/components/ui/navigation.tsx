@@ -8,44 +8,66 @@ import { cn } from '@/lib/utils'
 import { CompactXP } from './xp-badge'
 import { CompactStreak } from './streak-fire'
 import { api, type UserProgress } from '@/lib/api'
+import { 
+  Home, 
+  Menu, 
+  Edit, 
+  MessageCircle, 
+  BarChart3, 
+  Trophy, 
+  BarChart 
+} from 'lucide-react'
+import type { LucideIcon } from 'lucide-react'
 
 interface NavItem {
   href: string
   label: string
-  icon: string
-  activeIcon?: string
+  icon: LucideIcon
+  activeIcon?: LucideIcon
 }
 
 const navItems: NavItem[] = [
   {
     href: '/',
     label: 'Dashboard',
-    icon: '⌂',
-    activeIcon: '⌂',
+    icon: Home,
+    activeIcon: Home,
   },
   {
     href: '/lessons',
     label: 'Lessons',
-    icon: '≡',
-    activeIcon: '≡',
+    icon: Menu,
+    activeIcon: Menu,
   },
   {
     href: '/practice',
     label: 'Practice',
-    icon: '✎',
-    activeIcon: '✎',
+    icon: Edit,
+    activeIcon: Edit,
   },
   {
     href: '/chat',
     label: 'Chat',
-    icon: '◉',
-    activeIcon: '◉',
+    icon: MessageCircle,
+    activeIcon: MessageCircle,
   },
   {
     href: '/progress',
     label: 'Progress',
-    icon: '▣',
-    activeIcon: '▣',
+    icon: BarChart3,
+    activeIcon: BarChart3,
+  },
+  {
+    href: '/achievements',
+    label: 'Achievements',
+    icon: Trophy,
+    activeIcon: Trophy,
+  },
+  {
+    href: '/leaderboards',
+    label: 'Leaderboards',
+    icon: BarChart,
+    activeIcon: BarChart,
   },
 ]
 
@@ -142,9 +164,10 @@ export function Navigation() {
                     transition={{ type: 'spring', stiffness: 300, damping: 30 }}
                   />
                 )}
-                <span className="text-xl">
-                  {isActive && item.activeIcon ? item.activeIcon : item.icon}
-                </span>
+                {(() => {
+                  const IconComponent = isActive && item.activeIcon ? item.activeIcon : item.icon
+                  return <IconComponent className="w-5 h-5" />
+                })()}
                 <span className="font-medium">{item.label}</span>
               </Link>
             )
@@ -186,9 +209,10 @@ export function Navigation() {
                     transition={{ type: 'spring', stiffness: 300, damping: 30 }}
                   />
                 )}
-                <span className="text-2xl">
-                  {isActive && item.activeIcon ? item.activeIcon : item.icon}
-                </span>
+                {(() => {
+                  const IconComponent = isActive && item.activeIcon ? item.activeIcon : item.icon
+                  return <IconComponent className="w-6 h-6" />
+                })()}
                 <span className="text-xs font-medium">{item.label}</span>
               </Link>
             )

@@ -62,7 +62,14 @@ export function VoiceRecorder({
       const source = audioContext.createMediaStreamSource(stream)
       source.connect(analyser)
 
-      const mediaRecorder = new MediaRecorder(stream)
+      // Use WebM format (better browser support), Whisper can handle it
+      const mimeType = MediaRecorder.isTypeSupported('audio/webm') 
+        ? 'audio/webm' 
+        : MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
+        ? 'audio/webm;codecs=opus'
+        : 'audio/ogg;codecs=opus'
+      
+      const mediaRecorder = new MediaRecorder(stream, { mimeType })
       mediaRecorderRef.current = mediaRecorder
       audioChunksRef.current = []
 
@@ -73,7 +80,8 @@ export function VoiceRecorder({
       }
 
       mediaRecorder.onstop = () => {
-        const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/wav' })
+        // Use the same MIME type for the blob
+        const audioBlob = new Blob(audioChunksRef.current, { type: mimeType })
         const audioUrl = URL.createObjectURL(audioBlob)
         setRecordedAudio(audioUrl)
         if (onRecordingComplete) {

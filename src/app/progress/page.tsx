@@ -6,6 +6,8 @@ import { PageWrapper } from '@/components/ui'
 import { ProgressRing, XPBadge, StreakFire } from '@/components/ui'
 import { api } from '@/lib/api'
 import { Trophy, BookOpen, Clock, Target } from 'lucide-react'
+import Link from 'next/link'
+import { AchievementNotification } from '@/components/ui/achievement-notification'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar } from 'recharts'
 
 export default function ProgressPage() {
@@ -14,6 +16,8 @@ export default function ProgressPage() {
   const [vocabStats, setVocabStats] = useState<any[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [newAchievement, setNewAchievement] = useState<any>(null)
+  const [recentAchievements, setRecentAchievements] = useState<any[]>([])
 
   useEffect(() => {
     async function fetchProgress() {
@@ -31,6 +35,27 @@ export default function ProgressPage() {
           // Stats endpoint not yet implemented - show empty state
           setWeeklyData([])
           setVocabStats([])
+        }
+        
+        // Fetch recent achievements
+        try {
+          const userAchievements = await api.getUserAchievements(userId)
+          // Get most recent 4 achievements
+          const sorted = userAchievements
+            .sort((a, b) => new Date(b.unlocked_at).getTime() - new Date(a.unlocked_at).getTime())
+            .slice(0, 4)
+          
+          // Fetch achievement details
+          const allAchievements = await api.getAchievements()
+          const recentWithDetails = sorted.map(ua => {
+            const achievement = allAchievements.find(a => a.id === ua.achievement_id)
+            return achievement ? { ...achievement, unlocked: true } : null
+          }).filter(Boolean)
+          
+          setRecentAchievements(recentWithDetails)
+        } catch (achError) {
+          console.error('Failed to fetch achievements:', achError)
+          setRecentAchievements([])
         }
       } catch (error: any) {
         console.error('Failed to fetch progress:', error)
@@ -229,28 +254,50 @@ export default function ProgressPage() {
           transition={{ delay: 0.7 }}
           className="bg-bg-card border border-bg-elevated rounded-xl p-6"
         >
-          <h2 className="text-xl font-bold mb-4">Recent Achievements</h2>
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-xl font-bold">Achievements</h2>
+            <Link
+              href="/achievements"
+              className="text-sm text-sakura hover:text-sakura-dark font-medium"
+            >
+              View All →
+            </Link>
+          </div>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            {[
-              { name: 'First Steps', icon: 'Beginner', unlocked: true },
-              { name: 'Week Warrior', icon: 'Streak', unlocked: true },
-              { name: 'Vocabulary Master', icon: 'Master', unlocked: false },
-              { name: 'Perfect Week', icon: 'Perfect', unlocked: false },
-            ].map((achievement) => (
-              <div
-                key={achievement.name}
-                className={`p-4 rounded-lg text-center ${
-                  achievement.unlocked
-                    ? 'bg-sakura/20 border border-sakura'
-                    : 'bg-bg-elevated border border-bg-card opacity-50'
-                }`}
-              >
-                <div className="text-lg font-bold mb-2 text-sakura">{achievement.icon}</div>
-                <p className="text-sm font-medium">{achievement.name}</p>
-              </div>
-            ))}
+            {/* Dynamic achievements from API */}
+            {recentAchievements.length > 0 ? (
+              recentAchievements.map((ach, index) => (
+                <motion.div
+                  key={ach.id}
+                  initial={{ opacity: 0, scale: 0.8 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  transition={{ delay: 0.1 * index, duration: 0.3 }}
+                  whileHover={{ scale: 1.05 }}
+                  className={`p-4 rounded-lg text-center cursor-pointer ${
+                    ach.unlocked
+                      ? 'bg-sakura/20 border border-sakura'
+                      : 'bg-bg-elevated border border-bg-card opacity-50'
+                  }`}
+                >
+                  <Trophy className={`w-6 h-6 mx-auto mb-2 ${
+                    ach.unlocked ? 'text-sakura' : 'text-text-tertiary'
+                  }`} />
+                  <p className="text-sm font-medium">{ach.name}</p>
+                </motion.div>
+              ))
+            ) : (
+              <p className="text-sm text-text-secondary col-span-4 text-center py-4">
+                Complete lessons and practice to unlock achievements!
+              </p>
+            )}
           </div>
         </motion.div>
+
+        {/* Achievement Notification */}
+        <AchievementNotification
+          achievement={newAchievement}
+          onClose={() => setNewAchievement(null)}
+        />
       </div>
     </PageWrapper>
   )

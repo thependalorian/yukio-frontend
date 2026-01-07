@@ -79,6 +79,61 @@ export interface UserProgress {
 }
 
 /**
+ * Pronunciation analysis result
+ */
+export interface PronunciationAnalysis {
+  transcript: string
+  score: number
+  feedback: string
+  target_text: string
+  target_romaji: string
+  transcribed_romaji?: string
+  achievements_unlocked?: Array<{
+    id: string
+    name: string
+    description: string
+    icon: string
+    xp_reward: number
+  }>
+}
+
+/**
+ * Achievement
+ */
+export interface Achievement {
+  id: string
+  name: string
+  description: string
+  icon: string
+  category: 'learning' | 'vocab' | 'pronunciation' | 'streak' | 'xp' | 'jlpt' | 'special'
+  rarity: 'bronze' | 'silver' | 'gold' | 'platinum'
+  criteria: Record<string, any>
+  xp_reward: number
+}
+
+/**
+ * User Achievement
+ */
+export interface UserAchievement {
+  id: string
+  user_id: string
+  achievement_id: string
+  unlocked_at: string
+  progress?: Record<string, any>
+}
+
+/**
+ * Leaderboard Entry
+ */
+export interface LeaderboardEntry {
+  user_id: string
+  user_name?: string
+  score: number
+  rank: number
+  period: string
+}
+
+/**
  * API Client Class
  */
 class YukioAPI {
@@ -396,6 +451,34 @@ class YukioAPI {
   }
 
   /**
+   * Analyze pronunciation of recorded audio
+   */
+  async analyzePronunciation(
+    audioBlob: Blob,
+    targetText: string,
+    targetRomaji?: string
+  ): Promise<PronunciationAnalysis> {
+    const formData = new FormData()
+    formData.append('audio', audioBlob, 'recording.wav')
+    formData.append('target_text', targetText)
+    if (targetRomaji) {
+      formData.append('target_romaji', targetRomaji)
+    }
+
+    const response = await fetch(`${this.baseURL}/voice/analyze`, {
+      method: 'POST',
+      body: formData,
+    })
+
+    if (!response.ok) {
+      const errorText = await response.text()
+      throw new Error(`Pronunciation analysis failed: ${errorText}`)
+    }
+
+    return response.json()
+  }
+
+  /**
    * Get user progress statistics (weekly data, vocab stats)
    */
   async getProgressStats(userId: string): Promise<{ weekly: any[]; vocab: any[] }> {
@@ -436,6 +519,53 @@ class YukioAPI {
 
     if (!response.ok) {
       throw new Error(`Failed to generate rirekisho: ${response.statusText}`)
+    }
+
+    return response.json()
+  }
+
+  /**
+   * Get all available achievements
+   */
+  async getAchievements(): Promise<Achievement[]> {
+    const response = await fetch(`${this.baseURL}/achievements`)
+
+    if (!response.ok) {
+      throw new Error(`Failed to fetch achievements: ${response.statusText}`)
+    }
+
+    return response.json()
+  }
+
+  /**
+   * Get user's unlocked achievements
+   */
+  async getUserAchievements(userId: string): Promise<UserAchievement[]> {
+    const response = await fetch(`${this.baseURL}/achievements/${userId}`)
+
+    if (!response.ok) {
+      throw new Error(`Failed to fetch user achievements: ${response.statusText}`)
+    }
+
+    return response.json()
+  }
+
+  /**
+   * Get leaderboard entries
+   */
+  async getLeaderboard(
+    category: 'weekly_xp' | 'monthly_xp' | 'all_time_xp' | 'weekly_streak' | 'monthly_streak' | 'pronunciation' | 'lessons',
+    period: 'weekly' | 'monthly' | 'all-time' = 'weekly',
+    limit: number = 100
+  ): Promise<LeaderboardEntry[]> {
+    const url = new URL(`${this.baseURL}/leaderboards/${category}`)
+    url.searchParams.append('period', period)
+    url.searchParams.append('limit', limit.toString())
+
+    const response = await fetch(url.toString())
+
+    if (!response.ok) {
+      throw new Error(`Failed to fetch leaderboard: ${response.statusText}`)
     }
 
     return response.json()

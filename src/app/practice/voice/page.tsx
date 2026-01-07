@@ -5,6 +5,7 @@ import { motion } from 'framer-motion'
 import { PageWrapper } from '@/components/ui'
 import { VoiceRecorder } from '@/components/ui/voice-recorder'
 import { JapaneseText } from '@/components/ui/japanese-text'
+import { AchievementNotification } from '@/components/ui/achievement-notification'
 import { CheckCircle2, XCircle, TrendingUp } from 'lucide-react'
 import { api } from '@/lib/api'
 
@@ -24,6 +25,7 @@ export default function VoicePracticePage() {
   const [currentIndex, setCurrentIndex] = useState(0)
   const [score, setScore] = useState<number | null>(null)
   const [feedback, setFeedback] = useState<string>('')
+  const [newAchievement, setNewAchievement] = useState<any>(null)
 
   useEffect(() => {
     async function fetchPhrases() {
@@ -67,12 +69,33 @@ export default function VoicePracticePage() {
   const currentPhrase = phrases[currentIndex]
 
   const handleRecordingComplete = async (audioBlob: Blob) => {
-    // TODO: Send audio to backend for pronunciation analysis
     try {
-      // Will implement when backend endpoint is ready
-      throw new Error('Pronunciation analysis endpoint not yet implemented')
+      setError(null)
+      // Send audio to backend for pronunciation analysis
+      const result = await api.analyzePronunciation(
+        audioBlob,
+        currentPhrase.japanese,
+        currentPhrase.romaji
+      )
+      
+      setScore(result.score)
+      setFeedback(result.feedback)
+      
+      // Log for debugging
+      console.log('Pronunciation analysis:', {
+        transcript: result.transcript,
+        score: result.score,
+        target: currentPhrase.japanese
+      })
+      
+      // Show achievement notifications if any were unlocked
+      if (result.achievements_unlocked && result.achievements_unlocked.length > 0) {
+        // Show first achievement notification
+        setNewAchievement(result.achievements_unlocked[0])
+      }
     } catch (error: any) {
-      setError(error.message)
+      console.error('Pronunciation analysis error:', error)
+      setError(error.message || 'Failed to analyze pronunciation')
       setScore(null)
       setFeedback('')
     }
@@ -220,6 +243,12 @@ export default function VoicePracticePage() {
           </ul>
         </div>
       </div>
+
+      {/* Achievement Notification */}
+      <AchievementNotification
+        achievement={newAchievement}
+        onClose={() => setNewAchievement(null)}
+      />
     </PageWrapper>
   )
 }
