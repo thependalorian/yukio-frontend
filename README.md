@@ -86,9 +86,10 @@ NEXT_PUBLIC_BACKEND_URL=http://localhost:8058
 - `GET /voice/phrases` - Get voice practice phrases (extracted from materials)
 
 #### Chat & Search
-- `POST /chat/stream` - Stream chat responses (SSE)
+- `POST /chat/stream` - Stream chat responses (SSE) with automatic TTS
 - `POST /search/vector` - Vector similarity search
 - `POST /search/hybrid` - Hybrid search
+- `GET /api/audio/{filename}` - Serve TTS audio files
 
 #### Progress Tracking
 - `GET /progress/{user_id}` - Get user progress (XP, level, streak, etc.)
@@ -244,9 +245,11 @@ All UI components are in `src/components/ui/` and follow consistent patterns:
 ### Chat (`/chat`)
 - Real-time streaming chat with Yukio AI tutor
 - Server-Sent Events (SSE) for streaming responses
+- **Automatic TTS audio playback** - Audio plays automatically when ready
 - Japanese text extraction and display
 - Suggested prompts
 - Message history
+- Audio generation with Kokoro TTS (anime-style voices)
 
 ### Progress (`/progress`)
 - Level and XP display
@@ -299,6 +302,16 @@ All UI components are in `src/components/ui/` and follow consistent patterns:
 - Verify backend `/chat/stream` endpoint is working
 - Check network tab for SSE events
 - Ensure Ollama LLM is running and accessible
+
+### Audio Not Playing
+**Error**: TTS audio doesn't play automatically
+
+**Solutions**:
+- Check browser console for audio playback errors
+- Verify `tts_ready` events are being received in network tab
+- Check backend TTS is enabled: `TTS_ENGINE=kokoro` in backend `.env`
+- Verify audio file exists: `yukio/yukio_data/audio/tts_output.wav`
+- Check browser audio permissions
 
 ## Production Build
 

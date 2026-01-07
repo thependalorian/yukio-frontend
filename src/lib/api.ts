@@ -407,6 +407,58 @@ class YukioAPI {
 
     return response.json()
   }
+
+  /**
+   * Generate Japanese resume (履歴書) or work history (職務経歴書)
+   */
+  async generateRirekisho(
+    userId: string,
+    options: {
+      jobTitle?: string
+      companyName?: string
+      jobDescription?: string
+      documentType?: 'rirekisho' | 'shokumu-keirekisho' | 'both'
+    } = {}
+  ): Promise<RirekishoResponse> {
+    const response = await fetch(`${this.baseURL}/career/rirekisho`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        user_id: userId,
+        job_title: options.jobTitle,
+        company_name: options.companyName,
+        job_description: options.jobDescription,
+        document_type: options.documentType || 'rirekisho',
+      }),
+    })
+
+    if (!response.ok) {
+      throw new Error(`Failed to generate rirekisho: ${response.statusText}`)
+    }
+
+    return response.json()
+  }
+}
+
+/**
+ * Rirekisho types
+ */
+export interface RirekishoSection {
+  section_name: string
+  section_name_jp: string
+  content: string
+  content_jp?: string
+}
+
+export interface RirekishoResponse {
+  user_id: string
+  document_type: string
+  sections: RirekishoSection[]
+  generated_at: string
+  job_title?: string
+  company_name?: string
 }
 
 // Export singleton instance

@@ -5,8 +5,15 @@ import { motion } from 'framer-motion'
 import { PageWrapper } from '@/components/ui'
 import { ChatBubble } from '@/components/ui/chat-bubble'
 import { api } from '@/lib/api'
-import { Send, Mic, Loader2 } from 'lucide-react'
+import { Send, Mic, Loader2, Trash2 } from 'lucide-react'
 import toast from 'react-hot-toast'
+
+interface ResumeSection {
+  section_name: string
+  section_name_jp: string
+  content: string
+  content_jp?: string
+}
 
 interface Message {
   id: string
@@ -16,6 +23,12 @@ interface Message {
   reading?: string
   romaji?: string
   timestamp: Date
+  resumeData?: {
+    sections: ResumeSection[]
+    documentType?: string
+    jobTitle?: string
+    companyName?: string
+  }
 }
 
 const suggestedPrompts = [
@@ -23,7 +36,12 @@ const suggestedPrompts = [
   "How do I say 'Where is the station?'",
   "Quiz me on N5 vocabulary",
   "What's the difference between は and が?",
+  "Please review my resume",
+  "Help me create a rirekisho for a data analyst position",
 ]
+
+const STORAGE_KEY = 'yukio_chat_history'
+const SESSION_KEY = 'yukio_chat_session_id'
 
 export default function ChatPage() {
   // Initialize messages as empty to avoid hydration issues
@@ -31,24 +49,83 @@ export default function ChatPage() {
   const [messages, setMessages] = useState<Message[]>([])
   const [mounted, setMounted] = useState(false)
   
+  // Load chat history from localStorage on mount
   useEffect(() => {
     setMounted(true)
-    // Add initial welcome message after mount
-    setMessages([
-      {
-        id: '1',
-        content: 'こんにちは！I\'m Yukio, your Japanese language tutor. How can I help you learn today?',
-        isUser: false,
-        japaneseText: 'こんにちは',
-        reading: 'こんにちは',
-        romaji: 'konnichiwa',
-        timestamp: new Date(),
-      },
-    ])
+    
+    // Load session ID
+    const savedSessionId = typeof window !== 'undefined' ? localStorage.getItem(SESSION_KEY) : null
+    if (savedSessionId) {
+      setSessionId(savedSessionId)
+    }
+    
+    // Load messages from localStorage
+    try {
+      const savedMessages = typeof window !== 'undefined' ? localStorage.getItem(STORAGE_KEY) : null
+      if (savedMessages) {
+        const parsed = JSON.parse(savedMessages)
+        // Convert timestamp strings back to Date objects
+        const restoredMessages: Message[] = parsed.map((msg: any) => ({
+          ...msg,
+          timestamp: new Date(msg.timestamp),
+        }))
+        setMessages(restoredMessages)
+      } else {
+        // No saved messages, add initial welcome message
+        setMessages([
+          {
+            id: '1',
+            content: 'こんにちは、George！I\'m Yukio (由紀夫), your Japanese language tutor and career coach. How can I help you learn today?',
+            isUser: false,
+            japaneseText: 'こんにちは',
+            reading: 'こんにちは',
+            romaji: 'konnichiwa',
+            timestamp: new Date(),
+          },
+        ])
+      }
+    } catch (error) {
+      console.error('Error loading chat history:', error)
+      // Fallback to initial message if loading fails
+      setMessages([
+        {
+          id: '1',
+          content: 'こんにちは、George！I\'m Yukio (由紀夫), your Japanese language tutor and career coach. How can I help you learn today?',
+          isUser: false,
+          japaneseText: 'こんにちは',
+          reading: 'こんにちは',
+          romaji: 'konnichiwa',
+          timestamp: new Date(),
+        },
+      ])
+    }
   }, [])
+  
   const [input, setInput] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [sessionId, setSessionId] = useState<string | null>(null)
+  
+  // Save messages to localStorage whenever they change
+  useEffect(() => {
+    if (mounted && messages.length > 0) {
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(messages))
+      } catch (error) {
+        console.error('Error saving chat history:', error)
+      }
+    }
+  }, [messages, mounted])
+  
+  // Save session ID to localStorage whenever it changes
+  useEffect(() => {
+    if (mounted && sessionId) {
+      try {
+        localStorage.setItem(SESSION_KEY, sessionId)
+      } catch (error) {
+        console.error('Error saving session ID:', error)
+      }
+    }
+  }, [sessionId, mounted])
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
 
@@ -124,7 +201,32 @@ export default function ChatPage() {
           // Update session ID if provided
           if (chunk.session_id) {
             setSessionId(chunk.session_id)
+            // Save to localStorage immediately
+            if (typeof window !== 'undefined') {
+              try {
+                localStorage.setItem(SESSION_KEY, chunk.session_id)
+              } catch (error) {
+                console.error('Error saving session ID:', error)
+              }
+            }
           }
+        } else if (chunk.type === 'tts_ready') {
+          // TTS audio is ready, play it automatically
+          const audioPath = chunk.audio_path || '/api/audio/tts_output.wav'
+          const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8058'
+          const fullAudioUrl = audioPath.startsWith('http') ? audioPath : `${backendUrl}${audioPath}`
+          
+          // Create audio element and play automatically
+          const audio = new Audio(fullAudioUrl)
+          audio.play().catch((error) => {
+            console.error('Failed to play TTS audio:', error)
+            toast.error('Failed to play audio. Please check your connection.')
+          })
+          
+          // Optional: Log when audio finishes
+          audio.addEventListener('ended', () => {
+            console.log('TTS audio playback completed')
+          })
         } else if (chunk.type === 'end') {
           // Stream ended, break loop
           break
@@ -132,6 +234,19 @@ export default function ChatPage() {
           // Handle error
           console.error('Stream error:', chunk.content || chunk.message)
           throw new Error(chunk.content || chunk.message || 'Stream error')
+        }
+      }
+
+      // Extract Japanese text from full response (improved extraction)
+      const japaneseRegex = /[\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FAF]+/g
+      const japaneseMatches = fullResponse.match(japaneseRegex)
+      if (japaneseMatches && japaneseMatches.length > 0) {
+        // Use the first significant Japanese text found (at least 2 characters)
+        const significantMatch = japaneseMatches.find(m => m.length >= 2)
+        if (significantMatch) {
+          japaneseText = significantMatch
+          reading = significantMatch
+          romaji = '' // Could be enhanced with romaji conversion
         }
       }
 
@@ -157,6 +272,33 @@ export default function ChatPage() {
     inputRef.current?.focus()
   }
 
+  const handleClearChat = () => {
+    if (confirm('Are you sure you want to clear all chat history? This cannot be undone.')) {
+      // Clear messages and reset to initial welcome message
+      const welcomeMessage: Message = {
+        id: '1',
+        content: 'こんにちは、George！I\'m Yukio (由紀夫), your Japanese language tutor and career coach. How can I help you learn today?',
+        isUser: false,
+        japaneseText: 'こんにちは',
+        reading: 'こんにちは',
+        romaji: 'konnichiwa',
+        timestamp: new Date(),
+      }
+      setMessages([welcomeMessage])
+      setSessionId(null)
+      
+      // Clear localStorage
+      if (typeof window !== 'undefined') {
+        try {
+          localStorage.removeItem(STORAGE_KEY)
+          localStorage.removeItem(SESSION_KEY)
+        } catch (error) {
+          console.error('Error clearing chat history:', error)
+        }
+      }
+    }
+  }
+
   return (
     <PageWrapper>
       <div className="max-w-4xl mx-auto h-[calc(100vh-8rem)] flex flex-col">
@@ -167,17 +309,45 @@ export default function ChatPage() {
             animate={{ opacity: 1, y: 0 }}
             className="mb-4"
           >
-            <h1 className="text-3xl font-bold mb-2">Chat with Yukio</h1>
-            <p className="text-text-secondary">
-              Practice Japanese conversation with your AI tutor
-            </p>
+            <div className="flex justify-between items-start">
+              <div>
+                <h1 className="text-3xl font-bold mb-2">Chat with Yukio</h1>
+                <p className="text-text-secondary">
+                  Practice Japanese conversation and get career coaching from your AI tutor
+                </p>
+              </div>
+              {messages.length > 1 && (
+                <button
+                  onClick={handleClearChat}
+                  className="px-3 py-2 text-sm text-text-secondary hover:text-text-primary hover:bg-bg-elevated rounded-lg transition-colors flex items-center gap-2"
+                  title="Clear chat history"
+                >
+                  <Trash2 className="w-4 h-4" />
+                  Clear
+                </button>
+              )}
+            </div>
           </motion.div>
         ) : (
           <div className="mb-4">
-            <h1 className="text-3xl font-bold mb-2">Chat with Yukio</h1>
-            <p className="text-text-secondary">
-              Practice Japanese conversation with your AI tutor
-            </p>
+            <div className="flex justify-between items-start">
+              <div>
+                <h1 className="text-3xl font-bold mb-2">Chat with Yukio</h1>
+                <p className="text-text-secondary">
+                  Practice Japanese conversation and get career coaching from your AI tutor
+                </p>
+              </div>
+              {messages.length > 1 && (
+                <button
+                  onClick={handleClearChat}
+                  className="px-3 py-2 text-sm text-text-secondary hover:text-text-primary hover:bg-bg-elevated rounded-lg transition-colors flex items-center gap-2"
+                  title="Clear chat history"
+                >
+                  <Trash2 className="w-4 h-4" />
+                  Clear
+                </button>
+              )}
+            </div>
           </div>
         )}
 
@@ -197,6 +367,7 @@ export default function ChatPage() {
                 romaji={message.romaji}
                 timestamp={message.timestamp}
                 isLoading={showLoading}
+                resumeData={message.resumeData}
               />
             )
           })}

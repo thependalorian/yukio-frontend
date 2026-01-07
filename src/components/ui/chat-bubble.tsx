@@ -6,7 +6,15 @@ import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { JapaneseText } from './japanese-text'
 import { AudioButton } from './audio-button'
+import { ResumeDisplay } from './resume-display'
 import { Volume2, Eye, EyeOff, Languages, Loader2 } from 'lucide-react'
+
+interface ResumeSection {
+  section_name: string
+  section_name_jp: string
+  content: string
+  content_jp?: string
+}
 
 interface ChatBubbleProps {
   message: string
@@ -20,6 +28,12 @@ interface ChatBubbleProps {
   onToggleFurigana?: () => void
   onToggleRomaji?: () => void
   isLoading?: boolean
+  resumeData?: {
+    sections: ResumeSection[]
+    documentType?: string
+    jobTitle?: string
+    companyName?: string
+  }
 }
 
 export function ChatBubble({
@@ -34,6 +48,7 @@ export function ChatBubble({
   onToggleFurigana,
   onToggleRomaji,
   isLoading = false,
+  resumeData,
 }: ChatBubbleProps) {
   const [localShowFurigana, setLocalShowFurigana] = useState(showFurigana)
   const [localShowRomaji, setLocalShowRomaji] = useState(showRomaji)
@@ -61,6 +76,17 @@ export function ChatBubble({
           : 'bg-bg-card border border-bg-elevated rounded-bl-sm'
       }`}
     >
+      {/* Audio Button - Always show for assistant messages */}
+      {!isUser && (
+        <div className="mb-2 flex items-center justify-end">
+          <AudioButton 
+            text={japaneseText || message} 
+            size="sm"
+            className="p-1.5"
+          />
+        </div>
+      )}
+
       {/* Japanese Text with Controls */}
       {japaneseText && !isUser && (
         <div className="mb-2 space-y-2">
@@ -92,10 +118,19 @@ export function ChatBubble({
               >
                 <Languages className="w-4 h-4 text-text-secondary" />
               </button>
-              <AudioButton text={japaneseText} className="p-1" />
             </div>
           </div>
         </div>
+      )}
+
+      {/* Resume Display (if present) */}
+      {resumeData && !isUser && (
+        <ResumeDisplay
+          sections={resumeData.sections}
+          documentType={resumeData.documentType}
+          jobTitle={resumeData.jobTitle}
+          companyName={resumeData.companyName}
+        />
       )}
 
       {/* Main Message */}
